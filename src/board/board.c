@@ -1,16 +1,16 @@
-#ifndef Board_h
-#define Board_h
 #include <stdio.h>
 
-#define SIZE_X 10
-#define SIZE_X_LANE (SIZE_X - 4) // this exclude gutters and respective lines
-#define SIZE_Y 64
-#define SIZE_Y_LANE (SIZE_Y - 2) // this exclude top and bottom lines
-#define SIDE_LINES '|'
-#define TOP_LINES '_'
-#define BOTTOM_LINES '='
+// variaveis globais
+#define SIZE_X 12
+#define SIZE_X_LANE (SIZE_X - 4) // this exclude gutters and respective lines // REVER ISSO
+#define SIZE_Y 32
+#define SIZE_Y_LANE (SIZE_Y - 2) // this exclude top and bottom lines // REVER ISSO
 
-// controls lines
+char SIDE_LINES = '|';
+char TOP_LINES = '_';
+char BOTTOM_LINES = '=';
+
+// posicoes para controladores
 #define SPEED_Y 3
 #define DIRECTION_Y 6
 #define EFFECT_Y 9
@@ -33,204 +33,129 @@ typedef struct
     float effect;    // 1 (leftToRight) - 2 (noEffect) - 3 (rightToLeft)
 } ballStatus;
 
-void setBoard(char board[SIZE_X][SIZE_Y])
+// verificações para o sistema operacional
+#ifdef linux // se o sistema operacional for um linux
+
+// kbhit function
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+int _kbhit(void)
 {
-    int j;
-    int i;
-    // top line
-    for (i = 0; i < SIZE_X; i++)
-    {
-        board[i][0] = TOP_LINES;
-        printf("%c", TOP_LINES);
-    }
-    printf("\n");
+    struct termios oldt, newt;
+    int ch;
+    int oldf;
 
-    // middle
-    for (j = 1; j < (SIZE_Y - 1); j++)
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if (ch != EOF)
     {
-        i = 0;
-        board[i][j] = ' '; // left gutter space
-        i++;
-        board[i][j] = SIDE_LINES; // left gutter line
-        i++;
-        while (i < SIZE_X_LANE)
-        {
-            board[i][j] = ' ';
-            i++;
-        }
-        board[i][j] = SIDE_LINES; // right gutter line
-        i++;
-        board[i][j] = ' '; // right gutter space
+        ungetc(ch, stdin);
+        return 1;
     }
 
-    // bottom line
-    i = 0;
-    board[i][SIZE_Y - 1] = ' '; // left gutter space
-    i++;
-    board[i][SIZE_Y - 1] = SIDE_LINES; // left gutter line
-    i++;
-    while (i < SIZE_X_LANE)
-    {
-        board[i][j] = ' ';
-        i++;
-    }
-    board[i][SIZE_Y - 1] = SIDE_LINES; // right gutter line
-    i++;
-    board[i][SIZE_Y - 1] = ' '; // right gutter space
+    return 0;
 }
 
-void showSpeedLabel()
+void initiateConsole()
 {
-    printf("\t\t\t");
-    printf("SPEED");
-}
+    printf("\033[2J");   // like system("clear") // REVER ISSO
+    printf("\033[0;0H"); // move to (0,0)
+};
 
-void showSpeedLoad(int speed)
+void moveCursorTo(int x, int y)
 {
-    for (int i = 0; i < speed; i++)
-    {
-        printf("#");
-    }
-}
+    printf("\033[%i;%iH", x, y);
+};
 
-void showDirectionLabel()
+void writeStringIn(int x, int y, char *str)
 {
-    printf("\t\t\t");
-    printf("DIRECTION");
-}
+    moveCursorTo(x, y);
+    printf("%s", str);
+};
 
-void showDirectionLoad(float direction)
+void swapStringPos(int x, int y, int newX, int newY, char *str, char *newStr)
 {
-    float unit = 3 / 15; // how much value each direction charge (#) has
-    float firstUnit = 1 + unit;
-    for (float i = firstUnit; i <= direction; i += unit)
-    {
-        printf("#");
-    }
-}
+    moveCursorTo(newX, newY);
+    printf("%s", newStr);
+    moveCursorTo(x, y);
+    printf("%s", str);
+};
 
-void showEffectLabel()
+void _sleep(float seconds)
 {
-    printf("\t\t\t");
-    printf("EFFECT");
-}
-
-void showEffectLoad(float effect)
-{
-    float unit = 3 / 15; // how much value each effect charge (#) has
-    float firstUnit = 1 + unit;
-    for (float i = firstUnit; i <= effect; i += unit)
-    {
-        printf("#");
-    }
-}
-
-void showBoard(char board[SIZE_X][SIZE_Y], ballStatus ballS)
-{
-    int line, collum;
-    line = 0;
-    while (line < (SPEED_Y - 1))
-    { // write lines until line where controls show
-        for (collum = 0; collum < SIZE_X; collum++)
-        {
-            printf("%c", board[line][collum]);
-        }
-        printf("\n");
-        line++;
-    }
-
-    // write line with speed lable
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    showSpeedLabel();
-    printf("\n");
-    line++;
-
-    // write third line with speed load
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    showSpeedLoad(ballS.speed);
-    printf("\n");
-    line++;
-
-    // write four line, space between speed and direction
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    printf("\n");
-    line++;
-
-    // write line with direction lable
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    showDirectionLabel();
-    printf("\n");
-    line++;
-
-    // write line with direction load
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    showDirectionLoad(ballS.direction);
-    printf("\n");
-    line++;
-
-    // write line, space between direction and effect
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    printf("\n");
-    line++;
-
-    // write line with effect lable
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    showEffectLabel();
-    printf("\n");
-    line++;
-
-    // write line with effect load
-    for (collum = 0; collum < SIZE_X; collum++)
-    {
-        printf("%c", board[line][collum]);
-    }
-    showEffectLoad(ballS.effect);
-    printf("\n");
-    line++;
-
-    //...
-}
-
-void updateElements(char board[SIZE_X][SIZE_Y], boardCoord boardC, int typeUpdate) // typeUpdate - 1 (ball), 2 (pins), 3(two)
-{
-    if (typeUpdate == 2 || typeUpdate == 3) {
-        // TODO percorre os pinos verificando posição e trocando se necessario
-    }
-
-    if (typeUpdate == 1 || typeUpdate == 3) {
-        // TODO da um update na posição da bola
-    }
-
-    // TODO pensar se é legal ja mandar um renderizar aqui
-}
-
-// TODO fazer um update dos status (speed, direction, effect)
-
-int main()
-{
-
-    return 1;
+    usleep(1000000 * seconds);
 }
 
 #endif
+
+#ifndef _WIN32 // se o sistema operacional for windows
+
+// ter as mesmas funcoes que no linux
+
+#endif
+
+void setBoard(char board[SIZE_Y][SIZE_X])
+{
+    int maxY = (SIZE_Y - 1);
+    int maxX = (SIZE_X - 1);
+
+    for (int i = 0; i < SIZE_Y; i++) // preenchendo a pista com espaços
+    {
+        for (int j = 0; j < SIZE_X; j++)
+        {
+            board[i][j] = ' ';
+        }
+    }
+
+    for (int j = 0; j < SIZE_X; j++) // as linhas superiores
+    {
+        board[0][j] = TOP_LINES;
+    }
+
+    for (int i = 1; i < (SIZE_Y - 1); i++) // as linhas demonstrando as laterais da pista
+    {
+        board[i][1] = board[i][maxX - 1] = SIDE_LINES;
+    }
+
+    for (int j = 0; j < SIZE_X; j++) // as linhas inferiores demonstrando o comeco da pista
+    {
+        board[maxY][j] = BOTTOM_LINES;
+    }
+}
+
+// apenas para testes
+int main()
+{
+    initiateConsole();
+    char board[SIZE_Y][SIZE_X];
+    setBoard(board);
+
+    // showBoard(board);
+
+    // test
+    for (int i = 0; i < SIZE_Y; i++)
+    {
+        for (int j = 0; j < SIZE_X; j++)
+        {
+            printf("%c", board[i][j]);
+        }
+        printf("\n");
+    }
+
+    while (!_kbhit())
+    {
+    }
+
+    return 0;
+}
