@@ -35,12 +35,13 @@ typedef struct
     coordPine pins[10];
 } boardCoord;
 
-typedef struct
-{
-    int speed;       // 1 (low) - 15 (high)
-    float direction; // 1 (left) - 2 (middle) - 3(right)
-    float effect;    // 1 (leftToRight) - 2 (noEffect) - 3 (rightToLeft)
-} ballStatus;
+// REVER ISSO - apagar pq nao uso mais
+// typedef struct
+// {
+//     int speed;       // 1 (low) - 15 (high)
+//     float direction; // 1 (left) - 2 (middle) - 3(right)
+//     float effect;    // 1 (leftToRight) - 2 (noEffect) - 3 (rightToLeft)
+// } ballStatus;
 
 // prototipacao para as funcoes especiais para cada sistema operacional
 void moveCursorTo(int x, int y);
@@ -149,6 +150,20 @@ void resetCursorPos()
     moveCursorTo(SIZE_X + 20, 0);
 }
 
+int randColisaoMult(int speed)
+{
+    int r;
+    int maxProb = 80;
+    int maxSpeed = 15;
+    int prob = speed * (maxProb / maxSpeed);
+    r = rand() % 100 + 1;
+    if (r > prob)
+    {
+        return 0;
+    }
+    return 1;
+}
+
 void setBoard(char board[SIZE_Y][SIZE_X])
 {
     int maxY = (SIZE_Y - 1);
@@ -197,6 +212,7 @@ void setBoardItems(char board[SIZE_Y][SIZE_X], boardCoord *coords)
     // coordenadas das bolas
     coords->ball.x = SIZE_X / 2 + 1; // coloca a bola bem no meio do board
     coords->ball.y = SIZE_Y - 2;     // coloca a bola bem em baixo mas nao encostando no comeco da board
+    board[coords->ball.x][coords->ball.y] = BALL_CHAR;
 
     // coordenadas dos pinos
     qtdPerLines = 4;  // quantidade de pinos por linha
@@ -213,6 +229,7 @@ void setBoardItems(char board[SIZE_Y][SIZE_X], boardCoord *coords)
         {
             coords->pins[pineIndex].x = x;
             coords->pins[pineIndex].y = y;
+            board[y - 1][x - 1] = PINE_UP_CHAR;
             pineIndex++;
             x += 2;
         }
@@ -290,10 +307,22 @@ void showBoardItems(boardCoord coords)
     resetCursorPos();
 }
 
+void multipleCollision(char board[SIZE_Y][SIZE_X], int xPine, int yPine, int ballSpeed)
+{
+    if (yPine != 2) // se for 2 entao eh um pino na ultima linha
+    {
+        if (randColisaoMult(ballSpeed)) // se a colisao vai acontecer
+        {
+            // verificar se ha pinos nas diagonais e usar essa mesma funcao como recursiva, depois dela acabar eu desenho o novo pino depois do if(yPine != 2)
+        }
+    }
+}
+
 void renderGame(char board[SIZE_Y][SIZE_X], boardCoord *bCoord)
 {
     coordBall newBall;
     float delaySleep;
+    int randColisaoMult;                                  // randomiza um numero para colisao multipla (quando um pino derruba outro)
     while (bCoord->ball.speed > 0 && bCoord->ball.y != 1) // enquanto a bola permanecer em movimento
     {
         // calcular a posicao e atributos da nova bola
@@ -304,13 +333,23 @@ void renderGame(char board[SIZE_Y][SIZE_X], boardCoord *bCoord)
         // calcular as novas coordenadas
 
         // colisao
-        if (board[newBall.y - 1][newBall.x] == PINE_UP_CHAR) // se colidiu
+        if (board[newBall.y - 1][newBall.x - 1] == PINE_UP_CHAR) // se colidiu o pino se abaixa e a bola passa por ele
         {
-            
+            // escreve o pino como caido
+            board[newBall.y - 1][newBall.x - 1] == PINE_DOWN_CHAR;
+            moveCursorTo(newBall.x, newBall.y);
+            printf("%c", PINE_DOWN_CHAR);
+            resetCursorPos();
+
+            // colisao dupla
+
+            // move a nova bola para depois do pino
+            newBall.y--;
+            // diminui a velocidade da bola porque ela bateu no pico // REVER ISSO - mexer para a velocidade diminuir mais
+            bCoord->ball.speed = bCoord->ball.speed / 2;
         }
         else // se nao colidiu
         {
-
         }
 
         // desenha a nova bola e apaga a antiga
@@ -343,6 +382,7 @@ int main()
     // inicia e mostra a pista
     setBoard(board);
     showBoard(board);
+
     // inicia e mostra os items da pista (bola e pinos)
     setBoardItems(board, &bCoord);
     showBoardItems(bCoord);
