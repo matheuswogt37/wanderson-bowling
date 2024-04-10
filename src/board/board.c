@@ -6,6 +6,7 @@
 #define SIZE_Y 32
 #define SIZE_Y_LANE (SIZE_Y - 2) // this exclude top and bottom lines // REVER ISSO
 #define LABELS_X (SIZE_X + 10)
+#define SLEEP_MOD 128 // quanto maior, mais rapido o sleep sera
 
 char SIDE_LINES = '|';
 char TOP_LINES = '_';
@@ -61,6 +62,7 @@ void clearKeyboardBuffer();
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio_ext.h>
+#include <stdlib.h>
 
 int _kbhit(void)
 {
@@ -148,6 +150,11 @@ void clearKeyboardBuffer()
 void resetCursorPos()
 {
     moveCursorTo(SIZE_X + 20, 0);
+}
+
+int roundFUp(float number)
+{
+    return (number >= 0) ? (int)(number + 0.5) : (int)(number - 0);
 }
 
 int randColisaoMult(int speed)
@@ -307,14 +314,107 @@ void showBoardItems(boardCoord coords)
     resetCursorPos();
 }
 
-void multipleCollision(char board[SIZE_Y][SIZE_X], int xPine, int yPine, int ballSpeed)
+void downAndMultipleCollision(char board[SIZE_Y][SIZE_X], int xPine, int yPine, int ballSpeed)
 {
+    board[yPine - 1][xPine - 1] = PINE_DOWN_CHAR;
+    moveCursorTo(xPine, yPine);
+    printf("%c", PINE_DOWN_CHAR);
+    resetCursorPos();
     if (yPine != 2) // se for 2 entao eh um pino na ultima linha
     {
-        if (randColisaoMult(ballSpeed)) // se a colisao vai acontecer
+        if (randColisaoMult(ballSpeed)) // se a colisao para esquerda superior vai acontecer
         {
             // verificar se ha pinos nas diagonais e usar essa mesma funcao como recursiva, depois dela acabar eu desenho o novo pino depois do if(yPine != 2)
+            if (board[xPine - 1][yPine - 1]) // se tem uma bola na esquerda superior
+            {
+                downAndMultipleCollision(board, xPine - 1, yPine - 1, ballSpeed);
+            }
         }
+        else if (randColisaoMult(ballSpeed)) // se a colisao para direita superior vai acontecer
+        {
+            if (board[xPine + 1][yPine - 1]) // se tem uma bola na esquerda superior
+            {
+                downAndMultipleCollision(board, xPine + 1, yPine - 1, ballSpeed);
+            }
+        }
+    }
+}
+
+// REVER ISSO - ambos os calc quando as barras tendem a esquerda elas nao chegam ao seus extremos (-1) nao sei porque
+
+float calcModDirection(int direction)
+{
+    float mod = 1.0 / 7; // 1 - quantidade maxima que a bola pode deslocar | 7 - intensidade que a direcao pode ter
+    float res;
+    // verifica onde a direcao esta a partir do meio (8)
+    if (direction > 8) // vai para a direita
+    {
+        res = mod * (direction - 8.0); // menos 8 porque precisa saber quantas casas se deslocou para a direita
+    }
+    else if (direction < 8) // vai para a esquerda
+    {
+        res -= 1;
+        res += mod * direction;
+
+        // mod *= -1.0; // o -1 eh para que o modificador seja um numero negativo
+    }
+    else
+    {
+        res = 0;
+    }
+
+    return res;
+}
+
+float calcModEffect(int *effect)
+{
+    float mod = 1.0 / 42; // quando for alterar o numero dividendo favor deixar um multiplo de 7 // REVER ISSO - talvez seja melhor mudar para um numero menor ainda, ver isso a partir da execucao
+    float res = mod;
+
+    if (*effect > 8)
+    { // vai para a direita
+        res = mod * (*effect - 8.0);
+        printf("\nres - %f\n", res);
+        _sleep(1);
+        if (*effect < 15)
+        { // aumenta o efeito para a direita
+            *effect = *effect + 1;
+        }
+    }
+    else if (*effect < 8)
+    { // vai para a esquerda
+        res = mod * (*effect - 8.0);
+        printf("\nres - %f\n", res);
+        _sleep(1);
+        if (*effect > 1)
+        {
+            *effect = *effect - 1;
+        }
+    }
+    else
+    {
+        res = 0;
+    }
+
+    return res;
+}
+
+void ballFallInGutter(int x, int oldX, int y, float delaySleep)
+{
+    swapBallPos(oldX, y + 1, x, y - 1);
+    resetCursorPos();
+    y--;
+    printf("\n");
+    _sleep(delaySleep);
+    while (y - 1 != 1) // enquanto a linha de cima nao for o final
+    {
+        // moveCursorTo(25, 15);
+        // printf("x - %i\ny - %i\n", x, y);
+        swapBallPos(x, y, x, y - 1);
+        resetCursorPos();
+        y--;
+        printf("\n");
+        _sleep(delaySleep);
     }
 }
 
@@ -322,27 +422,69 @@ void renderGame(char board[SIZE_Y][SIZE_X], boardCoord *bCoord)
 {
     coordBall newBall;
     float delaySleep;
-    int randColisaoMult;                                  // randomiza um numero para colisao multipla (quando um pino derruba outro)
-    while (bCoord->ball.speed > 0 && bCoord->ball.y != 1) // enquanto a bola permanecer em movimento
+    float modDirection; // modificador da direcao
+    float modEffect;    // modificador do efeito
+    float xFloat;
+    int randColisaoMult; // randomiza um numero para colisao multipla (quando um pino derruba outro)
+
+    modDirection = calcModDirection(bCoord->ball.direction);
+    // REVER ISSO - teste para ver o mod direction
+    moveCursorTo(25, 11);
+    printf("dir - %f\n", modDirection);
+    resetCursorPos();
+
+    xFloat = modDirection;
+    while (bCoord->ball.speed > 0 && bCoord->ball.y != 2) // enquanto a bola permanecer em movimento
     {
         // calcular a posicao e atributos da nova bola
+        modEffect = calcModEffect(&bCoord->ball.effect);
+        // REVER ISSO - teste para ver o mod direction
+        moveCursorTo(25, 12);
+        printf("effect - %i\n", bCoord->ball.effect);
+        moveCursorTo(25, 13);
+        printf("ModEffect - %f\n", modEffect);
+        resetCursorPos();
 
-        // teste // REVER ISSO - apagar depois, isso eh apenas para testes
-        newBall.x = bCoord->ball.x;
-        newBall.y = bCoord->ball.y - 1; // sobre um pra cima
         // calcular as novas coordenadas
+        if (modEffect < 0) // arredondar para cima quando o numero eh negativo
+        {
+            xFloat = xFloat + modEffect;
+            newBall.x = bCoord->ball.x + roundFUp(xFloat);
+            // REVER ISSO - apagar, apenas teste
+            moveCursorTo(25, 18);
+            printf("xfloat - %f\nnewBallx - %i\n", xFloat, newBall.x);
+            resetCursorPos();    
+            _sleep(1);
+        }
+        else // quando numero eh positivo nao precisa
+        {
+            xFloat = xFloat + modEffect;
+            newBall.x = bCoord->ball.x + xFloat;
+        }
+        newBall.y = bCoord->ball.y - 1; // sobre um pra cima
+        if (xFloat >= 1 || xFloat <= -1)
+        {
+            xFloat = modDirection;
+        }
+
+        // REVER ISSO - apagar, apenas teste
+        moveCursorTo(25, 13);
+        printf("xfloat - %f\n", xFloat);
+        resetCursorPos();
 
         // colisao
         if (board[newBall.y - 1][newBall.x - 1] == PINE_UP_CHAR) // se colidiu o pino se abaixa e a bola passa por ele
         {
-            // escreve o pino como caido
-            board[newBall.y - 1][newBall.x - 1] == PINE_DOWN_CHAR;
-            moveCursorTo(newBall.x, newBall.y);
-            printf("%c", PINE_DOWN_CHAR);
-            resetCursorPos();
+            // derruba o pino e verifica se houve colisao dupla
+            downAndMultipleCollision(board, newBall.x, newBall.y, bCoord->ball.speed);
 
-            // colisao dupla
-
+            // move a nova bola para depois do pino
+            newBall.y--;
+            // diminui a velocidade da bola porque ela bateu no pico // REVER ISSO - mexer para a velocidade diminuir mais
+            bCoord->ball.speed = bCoord->ball.speed / 2;
+        }
+        else if (board[newBall.y - 1][newBall.x - 1] == PINE_DOWN_CHAR) // se colidiu com um pino derrubado
+        {
             // move a nova bola para depois do pino
             newBall.y--;
             // diminui a velocidade da bola porque ela bateu no pico // REVER ISSO - mexer para a velocidade diminuir mais
@@ -352,19 +494,33 @@ void renderGame(char board[SIZE_Y][SIZE_X], boardCoord *bCoord)
         {
         }
 
-        // desenha a nova bola e apaga a antiga
-        swapBallPos(bCoord->ball.x, bCoord->ball.y, newBall.x, newBall.y);
+        // se bola cai num gutter (espaco vazio das bolas nas laterais)
+        if (newBall.x == SIZE_X - 1) // se caiu no gutter direito
+        {
+            ballFallInGutter(newBall.x + 1, bCoord->ball.x, newBall.y, delaySleep);
+            break; // o break ta ali pra quebrar o while quando a bola terminar de andar pelo gutter
+        }
+        else if (newBall.x == 2) // se caiu no gutter esquerdo
+        {
+            ballFallInGutter(newBall.x - 1, bCoord->ball.x, newBall.y, delaySleep);
+            break; // o break ta ali pra quebrar o while quando a bola terminar de andar pelo gutter
+        }
+        else // se a bola ainda esta na pista
+        {
+            // desenha a nova bola e apaga a antiga
+            swapBallPos(bCoord->ball.x, bCoord->ball.y, newBall.x, newBall.y);
 
-        // teste
-        bCoord->ball.x = newBall.x;
-        bCoord->ball.y = newBall.y;
+            // teste
+            bCoord->ball.x = newBall.x;
+            bCoord->ball.y = newBall.y;
 
-        resetCursorPos();
-        delaySleep = (60.0 / (128 * bCoord->ball.speed)); // quanto maior o numero multiplicando o speed, mais rapido sera
-        printf("%f", delaySleep);
-        printf("\n");
-        _sleep(delaySleep); // o calculo da velocidade, no pior caso (speed = 1) sleep(1) e no melhor caso (speed = 15) sleep(0,5) // REVER ISSO - da pra fazer ficar mais veloz, so mexer no 4 para 8 e etc
-        // _sleep(1);
+            resetCursorPos();
+            delaySleep = (60.0 / (SLEEP_MOD * bCoord->ball.speed)); // quanto maior o numero multiplicando o speed, mais rapido sera
+            printf("%f", delaySleep);
+            printf("\n");
+            _sleep(delaySleep); // o calculo da velocidade, no pior caso (speed = 1) sleep(1) e no melhor caso (speed = 15) sleep(0,5) // REVER ISSO - da pra fazer ficar mais veloz, so mexer no 4 para 8 e etc
+            // _sleep(1);
+        }
     }
 
     // test
@@ -375,6 +531,7 @@ void renderGame(char board[SIZE_Y][SIZE_X], boardCoord *bCoord)
 // apenas para testes
 int main()
 {
+    srand(time(NULL)); // funcao para o rand() funcionar corretamente
     initiateConsole();
     char board[SIZE_Y][SIZE_X];
     boardCoord bCoord;
@@ -389,9 +546,12 @@ int main()
 
     // inicia e mostra os controladores
     showControlLabels();
-    bCoord.ball.speed = getControlLoad(LABELS_X, SPEED_Y + 1);
-    bCoord.ball.direction = getControlLoad(LABELS_X, DIRECTION_Y + 1);
-    bCoord.ball.effect = getControlLoad(LABELS_X, EFFECT_Y + 1);
+    // bCoord.ball.speed = getControlLoad(LABELS_X, SPEED_Y + 1);
+    bCoord.ball.speed = 8;
+    // bCoord.ball.direction = getControlLoad(LABELS_X, DIRECTION_Y + 1);
+    bCoord.ball.direction = 8;
+    // bCoord.ball.effect = getControlLoad(LABELS_X, EFFECT_Y + 1);
+    bCoord.ball.effect = 7;
 
     renderGame(board, &bCoord);
 
