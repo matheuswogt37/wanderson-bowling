@@ -7,6 +7,7 @@
 #define SIZE_Y_LANE (SIZE_Y - 2) // this exclude top and bottom lines // REVER ISSO
 #define LABELS_X (SIZE_X + 10)
 #define SLEEP_MOD 128 // quanto maior, mais rapido o sleep sera
+#define FILENAME "pontuacao.txt"
 
 char SIDE_LINES = '|';
 char TOP_LINES = '_';
@@ -157,19 +158,26 @@ void clearKeyboardBuffer()
 
 // Função para exibir as instruções do jogo
 void exibirInstrucoes() {
-        printf("\n===== Instruções do Jogo de Boliche =====\n");
-        printf("1. O jogo de boliche consiste em 2 tentativas.\n");
-        printf("2. Cada pino derrubado tem um valo de 1 ponto.\n");
-        printf("3. Se derrubar todos os pinos em uma tentativa, isso é um 'strike' e você ganha 5 pontos extras.\n");
-        printf("4. Se derrubar todos os pinos duas vezes seguidas, isso é um 'spare' e você ganha 10 pontos extras.\n");
-        printf("5. Se não derrubar todos os pinos em duas tentativas, você ganha a quantidade de pontos equivalentes aos pinos derrubados.\n");
-        printf("6. Após cada jogo, sua pontuação máxima será salva e exibida se for um novo recorde.\n");
-        printf("=========================================\n\n");
+    printf("\n===== Instruções do Jogo de Boliche =====\n");
+    printf("1. O jogo de boliche consiste em 2 tentativas.\n");
+    printf("2. Cada pino derrubado tem um valo de 1 ponto.\n");
+    printf("3. Se derrubar todos os pinos em uma tentativa, isso é um 'strike' e você ganha 5 pontos extras.\n");
+    printf("4. Se derrubar todos os pinos duas vezes seguidas, isso é um 'spare' e você ganha 10 pontos extras.\n");
+    printf("5. Se não derrubar todos os pinos em duas tentativas, você ganha a quantidade de pontos equivalentes aos pinos derrubados.\n");
+    printf("6. Após cada jogo, sua pontuação máxima será salva e exibida se for um novo recorde.\n");
+    printf("=========================================\n\n");
 }
 
 void pressEnter() {
     moveCursorTo(2, SIZE_Y + 3);
-    printf("Press Enter to Continue\n");
+    printf("Pressione Enter para continuar\n");
+    while( getchar() != '\n');
+    printf("\n");
+}
+
+void pressEnterCord(int x, int y) {
+    moveCursorTo(x, y);
+    printf("Pressione Enter para continuar\n");
     while( getchar() != '\n');
     printf("\n");
 }
@@ -349,11 +357,6 @@ void showBoardItems(boardCoord coords)
     printf("%c", BALL_CHAR);
 
     resetCursorPos();
-}
-
-void showPoints() {
-    moveCursorTo(2, SIZE_Y+1);
-    printf("Pontuacao obtida - %i\n", POINTS);
 }
 
 void downAndMultipleCollision(char board[SIZE_Y][SIZE_X], int xPine, int yPine, int ballSpeed)
@@ -571,13 +574,64 @@ void playGame() {
     renderGame(board, &bCoord);
 }
 
+// Função para verificar e atualizar a pontuação máxima
+void atualizarPontuacaoMaxima(int pontuacao) {
+    FILE *arquivo;
+    int pontuacaoMaxima;
+
+    // Abrir o arquivo
+    arquivo = fopen(FILENAME, "r");
+    if (arquivo == NULL) {
+        // Se o arquivo não existir, criar um novo com a pontuação atual
+        arquivo = fopen(FILENAME, "w");
+        if (arquivo == NULL) {
+            printf("Erro ao criar o arquivo.\n");
+            exit(1);
+        }
+        fprintf(arquivo, "%d", pontuacao);
+        fclose(arquivo);
+        printf("Nova pontuação máxima salva no arquivo.\n");
+        return;
+    }
+
+    // Ler a pontuação máxima atual do arquivo
+    fscanf(arquivo, "%d", &pontuacaoMaxima);
+    fclose(arquivo);
+
+    // Verificar se a pontuação atual é maior do que a pontuação máxima
+    if (pontuacao > pontuacaoMaxima) {
+        // Abrir o arquivo para escrita e atualizar a pontuação máxima
+        arquivo = fopen(FILENAME, "w");
+        if (arquivo == NULL) {
+            printf("Erro ao abrir o arquivo para atualização.\n");
+            exit(1);
+        }
+        fprintf(arquivo, "%d", pontuacao);
+        fclose(arquivo);
+        printf("Nova pontuação máxima salva no arquivo.\n");
+    } else {
+        printf("Pontuação não ultrapassou a pontuação máxima atual.\n");
+    }
+}
+
+void showPoints() {
+    moveCursorTo(1, SIZE_Y+1);
+    printf("Pontuacao obtida - %i\n", POINTS);
+}
+
+void showFinalPoints() {
+    showPoints();
+    atualizarPontuacaoMaxima(POINTS);
+}
+
 // apenas para testes
 int main()
 {
     srand(time(NULL)); // funcao para o rand() funcionar corretamente
+    clearConsole();
 
     exibirInstrucoes();
-    pressEnter();
+    pressEnterCord(1, 10);
 
     initiateConsole();
     playGame();
@@ -586,16 +640,9 @@ int main()
 
     initiateConsole();
     playGame();
-    showPoints();
+    showFinalPoints();
 
 
-
-    // test vars
-    // moveCursorTo(1, SIZE_Y + 1);
-    // printf("speed - %i\ndirection - %i\neffect - %i\n", bCoord.ball.speed, bCoord.ball.direction, bCoord.ball.effect);
-    // printf("x - %i\ny - %i\n", bCoord.ball.x, bCoord.ball.y);
-
-    // _sleep(5);
 
     return 0;
 }
