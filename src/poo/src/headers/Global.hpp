@@ -1,4 +1,4 @@
-
+#pragma once
 //* pinos
 const char PINO_ERQUIDO = '|';
 const char PINO_CAIDO = '$';
@@ -18,3 +18,8 @@ const char LINHAS_INFERIORES = '=';
 #define LABELS_X (SIZE_X + 10)
 #define SLEEP_MOD 128  // quanto maior, mais rapido o sleep sera
 #define FILENAME "pontuacao.txt"
+
+//* controladores
+#define SPEED_Y 3
+#define DIRECTION_Y 6
+#define EFFECT_Y 9

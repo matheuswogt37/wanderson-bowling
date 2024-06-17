@@ -247,7 +247,7 @@ int randColisaoMult(int speed) {
 }
 
 void setBoard(char board[SIZE_Y][SIZE_X]) {
-    int maxY = (SIZE_Y - 1);
+     int maxY = (SIZE_Y - 1);
     int maxX = (SIZE_X - 1);
 
     for (int i = 0; i < SIZE_Y; i++)  // preenchendo a pista com espaços

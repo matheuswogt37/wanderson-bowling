@@ -1,7 +1,7 @@
 #ifndef Pino_hpp
 #define Pino_hpp
 
-#include "headers/Pos.hpp"
+#include "Pos.hpp"
 
 class Pino : public Pos {
     private:
